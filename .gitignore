@@ -1,0 +1,73 @@
+# ----------------------------
+# OS / Editor
+# ----------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# ----------------------------
+# Python / Flask backend
+# ----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ----------------------------
+# Runtime data (local only)
+# ----------------------------
+data/db/*.db
+data/db/*.db-*
+data/student_images/*.jpg
+data/student_images/*.jpeg
+data/student_images/*.png
+data/student_images/*.webp
+
+# Keep directories if you add .gitkeep files
+!data/db/.gitkeep
+!data/student_images/.gitkeep
+
+# ----------------------------
+# Frontend (Vue / Vite)
+# ----------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# ----------------------------
+# Env files / secrets
+# ----------------------------
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ----------------------------
+# Docker / compose local overrides
+# ----------------------------
+docker-compose.override.yml
