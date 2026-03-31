@@ -3,12 +3,14 @@ import {
   getStudents, 
   getStats, 
   getRecords, 
+  clearRecords as clearRecordsApi,
   registerStudent as registerStudentApi,
   deleteStudent as deleteStudentApi,
   scanAndMarkAttendance,
   detectFaces as detectFacesApi
 } from '@/services/api';
 import { useToast } from '@/composables/useToast';
+import Swal from 'sweetalert2';
 
 export const useAttendanceStore = defineStore('attendance', {
   state: () => ({
@@ -51,6 +53,19 @@ export const useAttendanceStore = defineStore('attendance', {
         toast.show(e.message, true);
       }
     },
+    async clearRecords() {
+      const toast = useToast();
+      try {
+        const res = await clearRecordsApi();
+        this.records = [];
+        await this.fetchStats();
+        toast.show(res.message || 'Attendance records cleared.');
+        return res;
+      } catch (e) {
+        toast.show(e.message || 'Failed to clear attendance records.', true);
+        throw e;
+      }
+    },
     async registerStudent(student) {
       const toast = useToast();
       try {
@@ -65,7 +80,20 @@ export const useAttendanceStore = defineStore('attendance', {
     },
     async deleteStudent(id, name) {
       const toast = useToast();
-      if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
+      const result = await Swal.fire({
+        title: 'Delete student?',
+        text: `Delete ${name}? This cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ff4d6d',
+        reverseButtons: true,
+        focusCancel: true,
+      });
+
+      if (!result.isConfirmed) return;
+
       try {
         await deleteStudentApi(id);
         toast.show(`${name} deleted`);

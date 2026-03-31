@@ -21,7 +21,9 @@ export const api = async (url, options = {}) => {
   }
 
   if (!res.ok) {
-    throw new Error(data.message || `Request failed (${res.status})`);
+    const err = new Error(data.message || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
 
   return data;
@@ -65,6 +67,16 @@ export const deleteStudent = async (studentId) => {
   });
 };
 
+const getClientLocalClock = () => {
+  const now = new Date();
+  const pad = value => String(value).padStart(2, '0');
+
+  return {
+    client_date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    client_time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+  };
+};
+
 // ── Face Detection & Recognition ──────────────────────────────────────────────
 
 /**
@@ -73,10 +85,14 @@ export const deleteStudent = async (studentId) => {
  * @returns {Promise<Object>} Response with faces array containing detection results
  */
 export const detectFaces = async (frameBase64) => {
+  const clientClock = getClientLocalClock();
   return api('/api/detect', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frame: frameBase64 }),
+    body: JSON.stringify({
+      frame: frameBase64,
+      ...clientClock,
+    }),
   });
 };
 
@@ -86,10 +102,14 @@ export const detectFaces = async (frameBase64) => {
  * @returns {Promise<Object>} Response with faces array containing recognition and attendance results
  */
 export const scanAndMarkAttendance = async (frameBase64) => {
+  const clientClock = getClientLocalClock();
   return api('/api/scan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frame: frameBase64 }),
+    body: JSON.stringify({
+      frame: frameBase64,
+      ...clientClock,
+    }),
   });
 };
 
@@ -115,6 +135,25 @@ export const getRecords = async (filters = {}) => {
   return api(url);
 };
 
+/**
+ * Delete all attendance records
+ * @returns {Promise<Object>} Response with deleted count
+ */
+export const clearRecords = async () => {
+  try {
+    return await api('/api/records', {
+      method: 'DELETE',
+    });
+  } catch (e) {
+    if (e?.status === 405) {
+      return api('/api/records/clear', {
+        method: 'POST',
+      });
+    }
+    throw e;
+  }
+};
+
 // ── Statistics ────────────────────────────────────────────────────────────────
 
 /**
@@ -122,7 +161,8 @@ export const getRecords = async (filters = {}) => {
  * @returns {Promise<Object>} Response with total_students, today_total, today_ontime, today_late, today
  */
 export const getStats = async () => {
-  return api('/api/stats');
+  const { client_date } = getClientLocalClock();
+  return api(`/api/stats?date=${encodeURIComponent(client_date)}`);
 };
 
 // ── Student Images ────────────────────────────────────────────────────────────
@@ -144,6 +184,7 @@ export default {
   detectFaces,
   scanAndMarkAttendance,
   getRecords,
+  clearRecords,
   getStats,
   getStudentImageUrl,
 };

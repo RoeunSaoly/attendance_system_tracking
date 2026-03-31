@@ -327,6 +327,52 @@ def parse_request_json():
     return request.get_json(silent=True) or {}
 
 
+def _parse_date(value):
+    if not isinstance(value, str):
+        return None
+
+    raw = value.strip()
+    if not raw:
+        return None
+
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _parse_time(value):
+    if not isinstance(value, str):
+        return None
+
+    raw = value.strip()
+    if not raw:
+        return None
+
+    try:
+        return datetime.strptime(raw, "%H:%M:%S").time()
+    except ValueError:
+        return None
+
+
+def resolve_client_clock(payload=None):
+    """
+    Use browser-provided local date/time when available; otherwise fallback
+    to server clock.
+    """
+    payload = payload or {}
+    now = datetime.now()
+
+    client_date = _parse_date(payload.get("client_date"))
+    client_time = _parse_time(payload.get("client_time"))
+
+    date_text = client_date.strftime("%Y-%m-%d") if client_date else now.strftime("%Y-%m-%d")
+    time_text = client_time.strftime("%H:%M:%S") if client_time else now.strftime("%H:%M:%S")
+    status_time = client_time if client_time else now.time()
+
+    return date_text, time_text, status_time
+
+
 @app.route("/")
 def index():
     return jsonify(
@@ -472,6 +518,7 @@ def detect_only():
 
     students = load_all_encodings()
     results = []
+    today, _, _ = resolve_client_clock(data)
 
     for face_rect in faces:
         x, y, w, h = [int(v) for v in face_rect]
@@ -488,7 +535,6 @@ def detect_only():
                 best_student = student
 
         if best_score >= RECOGNITION_THRESHOLD and best_student:
-            today = datetime.now().strftime("%Y-%m-%d")
             with sqlite3.connect(DB_PATH) as conn:
                 c = conn.cursor()
                 c.execute(
@@ -542,10 +588,8 @@ def scan_face():
     if not students:
         return jsonify({"success": False, "message": "No students registered yet.", "faces": []})
 
-    now = datetime.now()
-    today = now.strftime("%Y-%m-%d")
-    mark_time = now.strftime("%H:%M:%S")
-    current_status = get_attendance_status(now.time())
+    today, mark_time, status_time = resolve_client_clock(data)
+    current_status = get_attendance_status(status_time)
 
     results = []
     for face_rect in faces:
@@ -660,6 +704,33 @@ def get_records():
     return jsonify({"success": True, "records": records})
 
 
+@app.route("/api/records", methods=["DELETE"])
+def clear_records():
+    return _clear_attendance_records()
+
+
+@app.route("/api/records/clear", methods=["POST"])
+def clear_records_fallback():
+    return _clear_attendance_records()
+
+
+def _clear_attendance_records():
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM attendance")
+        deleted_count = c.fetchone()[0]
+        c.execute("DELETE FROM attendance")
+        conn.commit()
+
+    return jsonify(
+        {
+            "success": True,
+            "deleted": deleted_count,
+            "message": f"Cleared {deleted_count} attendance record(s).",
+        }
+    )
+
+
 @app.route("/api/students", methods=["GET"])
 def get_students():
     with sqlite3.connect(DB_PATH) as conn:
@@ -691,7 +762,9 @@ def delete_student(sid):
 
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
-    today = datetime.now().strftime("%Y-%m-%d")
+    requested_date = str(request.args.get("date", "")).strip()
+    parsed_date = _parse_date(requested_date)
+    today = parsed_date.strftime("%Y-%m-%d") if parsed_date else datetime.now().strftime("%Y-%m-%d")
 
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()

@@ -21,7 +21,8 @@
         <input type="text" v-model="filters.class" @input="applyFilters" placeholder="e.g. 11A" />
       </div>
 
-      <button @click="clearFilters" class="btn btn-gray">Clear</button>
+      <button @click="clearAllRecords" class="btn btn-danger">Clear</button>
+      <button @click="clearFilters" class="btn btn-gray">Reset Filters</button>
       <button @click="exportCSV" class="btn btn-blue ml-auto">Export CSV</button>
     </div>
 
@@ -67,6 +68,7 @@ import { onMounted, reactive } from 'vue';
 import { useAttendanceStore } from '@/stores/attendance';
 import { useToast } from '@/composables/useToast';
 import { getRecords } from '@/services/api';
+import Swal from 'sweetalert2';
 
 const store = useAttendanceStore();
 const toast = useToast();
@@ -86,6 +88,29 @@ const clearFilters = () => {
   filters.name = '';
   filters.class = '';
   store.fetchRecords({});
+};
+
+const clearAllRecords = async () => {
+  const result = await Swal.fire({
+    title: 'Clear all records?',
+    text: 'This cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Clear Records',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#ff4d6d',
+    reverseButtons: true,
+    focusCancel: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await store.clearRecords();
+    await store.fetchRecords(filters);
+  } catch (e) {
+    // Toast is already handled in store action.
+  }
 };
 
 const badgeClass = (status) => {
@@ -302,6 +327,11 @@ td {
 .btn-gray {
   background: rgba(255, 255, 255, 0.12);
   color: #e8f3ff;
+}
+
+.btn-danger {
+  background: #ff4d6d;
+  color: #380713;
 }
 
 .btn:hover {

@@ -15,7 +15,7 @@
     <div class="scan-layout">
       <div class="card camera-card">
         <div class="card-header">
-          <span class="time-rule">On time: 08:00 | Late: after 08:00</span>
+          <span class="time-rule">On time: 08:00 | Late: after 08:30</span>
           <span v-if="isCameraActive" class="live-badge">LIVE</span>
         </div>
 
