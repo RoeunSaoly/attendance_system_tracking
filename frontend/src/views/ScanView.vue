@@ -61,7 +61,7 @@
             </div>
             <div class="log-meta">
               <span>{{ log.time }}</span>
-              <span v-if="typeof log.score === 'number'">Score {{ log.score.toFixed(2) }}</span>
+              <span v-if="typeof log.score === 'number'">Accuracy {{ formatAccuracy(log.score) }}</span>
             </div>
           </div>
         </div>
@@ -90,6 +90,18 @@ let detectInterval = null;
 let markInterval = null;
 let animationId = null;
 let currentFaces = [];
+
+const toAccuracyPercent = (score) => {
+  if (typeof score !== 'number' || Number.isNaN(score)) return null;
+  const rawPercent = score <= 1 ? score * 100 : score;
+  return Math.max(0, Math.min(100, rawPercent));
+};
+
+const formatAccuracy = (score, digits = 1) => {
+  const percent = toAccuracyPercent(score);
+  if (percent === null) return null;
+  return `${percent.toFixed(digits)}%`;
+};
 
 const clearLoops = () => {
   if (detectInterval) clearInterval(detectInterval);
@@ -121,15 +133,18 @@ const drawFrame = () => {
 
     let color = '#ffd166';
     let label = 'Unknown';
+    const accuracy = formatAccuracy(face.score, 0);
 
     if (face.recognized) {
       if (face.already_marked) {
         color = '#5bc0eb';
-        label = `${face.name} (already)`;
+        label = accuracy ? `${face.name} (${accuracy}, already)` : `${face.name} (already)`;
       } else {
         color = '#2ec4b6';
-        label = face.name;
+        label = accuracy ? `${face.name} (${accuracy})` : face.name;
       }
+    } else if (accuracy) {
+      label = `Unknown (${accuracy})`;
     }
 
     ctx.strokeStyle = color;
@@ -183,7 +198,16 @@ const startCamera = async () => {
       } else {
         const recognizedCount = faces.filter(face => face.recognized).length;
         const unknownCount = faces.length - recognizedCount;
-        scanStatus.value = `${faces.length} face(s): ${recognizedCount} match, ${unknownCount} unknown`;
+        const recognizedWithScore = faces.filter(face => face.recognized && typeof face.score === 'number');
+
+        if (recognizedWithScore.length > 0) {
+          const avgAccuracy =
+            recognizedWithScore.reduce((sum, face) => sum + toAccuracyPercent(face.score), 0) /
+            recognizedWithScore.length;
+          scanStatus.value = `${faces.length} face(s): ${recognizedCount} match, ${unknownCount} unknown | Avg accuracy ${avgAccuracy.toFixed(1)}%`;
+        } else {
+          scanStatus.value = `${faces.length} face(s): ${recognizedCount} match, ${unknownCount} unknown`;
+        }
       }
     }, 450);
 
